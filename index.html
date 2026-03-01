@@ -154,7 +154,7 @@
         async function setupRoomRealtime() {
             document.getElementById('room-id-display').innerText = currentRoomId;
             // ตำแหน่งเก็บข้อมูลใน Database
-            roomRef = doc(db, 'artifacts', appId, 'public', 'data', currentRoomId);
+            roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
             
             try {
                 // ตรวจสอบว่าห้องนี้เคยมีคนสร้างหรือยัง
@@ -381,3 +381,4 @@
     </script>
 </body>
 </html>
+
