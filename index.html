@@ -104,13 +104,13 @@
            (ไปเอาโค้ดนี้ได้จาก console.firebase.google.com -> Project Settings)
         */
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "AIzaSyDxZN7QIusq7YwHfFEcNMx447A9nzJkYqA",
-  authDomain: "actrandomapp.firebaseapp.com",
-  projectId: "actrandomapp",
-  storageBucket: "actrandomapp.firebasestorage.app",
-  messagingSenderId: "626302954284",
-  appId: "1:626302954284:web:f2760bc105cf1545df1a89"
-};
+          apiKey: "AIzaSyDxZN7QIusq7YwHfFEcNMx447A9nzJkYqA",
+          authDomain: "actrandomapp.firebaseapp.com",
+          projectId: "actrandomapp",
+          storageBucket: "actrandomapp.firebasestorage.app",
+          messagingSenderId: "626302954284",
+          appId: "1:626302954284:web:f2760bc105cf1545df1a89"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -153,7 +153,7 @@
         // 4. ตั้งค่าดึงข้อมูลและอัปเดตแบบ Realtime
         async function setupRoomRealtime() {
             document.getElementById('room-id-display').innerText = currentRoomId;
-            // ตำแหน่งเก็บข้อมูลใน Database
+            // ตำแหน่งเก็บข้อมูลใน Database (แก้ไขเติม 'rooms' ลงไปตรงนี้)
             roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
             
             try {
@@ -188,14 +188,19 @@
         window.addItem = async (event, categoryId) => {
             event.preventDefault();
             const inputEl = document.getElementById(`input-${categoryId}`);
+            const linkEl = document.getElementById(`link-${categoryId}`);
             const text = inputEl.value.trim();
+            const link = linkEl.value.trim();
+            
             if (!text || !roomRef) return;
 
-            const newItem = { id: window.generateId(), text: text, addedAt: Date.now() };
+            // เพิ่ม link เข้าไปใน object ด้วย
+            const newItem = { id: window.generateId(), text: text, link: link, addedAt: Date.now() };
             const currentList = appData[categoryId].active || [];
             const newActive = [...currentList, newItem];
             
-            inputEl.value = ''; // ล้างช่องพิมพ์ทันทีให้พิมพ์ต่อสะดวกๆ
+            inputEl.value = ''; // ล้างช่องพิมพ์ชื่อ
+            linkEl.value = '';  // ล้างช่องพิมพ์ลิงก์
             
             // สั่งอัปเดตขึ้น Cloud Database
             await updateDoc(roomRef, { [`${categoryId}.active`]: newActive });
@@ -235,7 +240,8 @@
                 [`${categoryId}.history`]: newHistory
             });
 
-            window.showModal(categoryId, pickedItem.text);
+            // ส่งข้อมูล item ทั้งก้อนไปที่ Modal (แทนที่จะส่งแค่ข้อความ)
+            window.showModal(categoryId, pickedItem);
         };
 
         window.toggleHistory = (categoryId) => {
@@ -244,14 +250,20 @@
         };
 
         // UI Functions
-        window.showModal = (categoryId, text) => {
+        window.showModal = (categoryId, item) => {
             const modal = document.getElementById('result-modal');
             const content = document.getElementById('modal-content');
             const catInfo = CATEGORIES[categoryId];
 
             document.getElementById('modal-top-bar').className = `absolute top-0 left-0 right-0 h-4 ${catInfo.color.split(' ')[0]}`;
             document.getElementById('modal-category-title').innerText = `ผลการสุ่ม ${catInfo.title}`;
-            document.getElementById('modal-result-text').innerText = `🎉 ${text} 🎉`;
+            
+            // ตรวจสอบว่ามีลิงก์หรือไม่ ถ้ามีให้แสดงปุ่มกดลิงก์ในหน้าต่างสุ่มด้วย
+            let resultHTML = `🎉 ${item.text} 🎉`;
+            if (item.link) {
+                resultHTML += `<br><a href="${item.link}" target="_blank" class="text-sm font-normal text-indigo-500 hover:text-indigo-600 hover:underline mt-3 inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100"><i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดลิงก์ข้อมูล</a>`;
+            }
+            document.getElementById('modal-result-text').innerHTML = resultHTML;
 
             modal.classList.remove('hidden');
             content.classList.add('modal-animate');
@@ -297,14 +309,22 @@
                     </div>`;
             }
 
-            return `<ul class="space-y-2">` + items.map(item => `
+            return `<ul class="space-y-2">` + items.map(item => {
+                // สร้างการแสดงผลลิงก์ ถ้ามีการใส่ลิงก์ไว้
+                const textDisplay = item.link && !isHistory
+                    ? `<a href="${item.link}" target="_blank" class="text-indigo-600 hover:underline inline-flex items-center gap-1 font-medium">${item.text} <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>`
+                    : `<span class="${isHistory ? 'line-through text-slate-500' : 'font-medium text-slate-700'}">${item.text}</span>`;
+                
+                return `
                 <li class="flex items-center justify-between p-3 ${isHistory ? 'bg-white opacity-75' : 'bg-slate-50'} border border-slate-200 rounded-xl group hover:border-slate-300 transition-colors">
-                    <span class="text-sm ${isHistory ? 'line-through text-slate-500' : 'font-medium text-slate-700'}">${item.text}</span>
-                    <button onclick="deleteItem('${categoryId}', '${item.id}', ${isHistory})" class="text-slate-300 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50" title="ลบ">
+                    <div class="text-sm truncate pr-2 flex-1">
+                        ${textDisplay}
+                    </div>
+                    <button onclick="deleteItem('${categoryId}', '${item.id}', ${isHistory})" class="text-slate-300 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 shrink-0" title="ลบ">
                         <i class="fa-solid ${isHistory ? 'fa-xmark' : 'fa-trash'}"></i>
                     </button>
                 </li>
-            `).join('') + `</ul>`;
+            `}).join('') + `</ul>`;
         }
 
         function renderDashboard() {
@@ -335,12 +355,19 @@
                         </div>
 
                         <div class="p-5 flex-1 flex flex-col bg-white">
-                            <form onsubmit="addItem(event, '${category.id}')" class="mb-5 flex gap-2">
-                                <input type="text" id="input-${category.id}" placeholder="เพิ่มรายการใหม่..." autocomplete="off"
-                                    class="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 shadow-inner">
-                                <button type="submit" class="w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-sm">
-                                    <i class="fa-solid fa-plus"></i>
-                                </button>
+                            <form onsubmit="addItem(event, '${category.id}')" class="mb-5 flex flex-col gap-2">
+                                <!-- ช่องใส่ชื่อรายการ -->
+                                <input type="text" id="input-${category.id}" placeholder="เพิ่มรายการใหม่..." autocomplete="off" required
+                                    class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 shadow-inner">
+                                
+                                <!-- ช่องใส่ลิงก์ และปุ่มบวก -->
+                                <div class="flex gap-2">
+                                    <input type="url" id="link-${category.id}" placeholder="ใส่ลิงก์ (ถ้ามี)..." autocomplete="off"
+                                        class="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 shadow-inner">
+                                    <button type="submit" class="w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-sm shrink-0">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
                             </form>
 
                             <button onclick="pickRandom('${category.id}')" ${!canPick ? 'disabled' : ''} 
@@ -381,4 +408,3 @@
     </script>
 </body>
 </html>
-
