@@ -100,9 +100,7 @@
         let roomRef = null;
 
         // 2. ตั้งค่าการเชื่อมต่อ Firebase
-        /* หากนำไปโฮสต์เอง ต้องเปลี่ยน firebaseConfig ด้านล่างนี้เป็นของตัวเอง
-           (ไปเอาโค้ดนี้ได้จาก console.firebase.google.com -> Project Settings)
-        */
+        /* ⚠️ นำรหัส firebaseConfig ของคุณมาใส่ตรงนี้ ⚠️ */
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
           apiKey: "AIzaSyDxZN7QIusq7YwHfFEcNMx447A9nzJkYqA",
           authDomain: "actrandomapp.firebaseapp.com",
@@ -153,11 +151,9 @@
         // 4. ตั้งค่าดึงข้อมูลและอัปเดตแบบ Realtime
         async function setupRoomRealtime() {
             document.getElementById('room-id-display').innerText = currentRoomId;
-            // ตำแหน่งเก็บข้อมูลใน Database (แก้ไขเติม 'rooms' ลงไปตรงนี้)
             roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
             
             try {
-                // ตรวจสอบว่าห้องนี้เคยมีคนสร้างหรือยัง
                 const snap = await getDoc(roomRef);
                 if (!snap.exists()) {
                     await setDoc(roomRef, {
@@ -166,7 +162,6 @@
                     });
                 }
 
-                // ดักจับการเปลี่ยนแปลงแบบ Real-time (เมื่อเพื่อนเพิ่มข้อมูล จอเราจะอัปเดตตามทันที)
                 onSnapshot(roomRef, (docSnap) => {
                     if (docSnap.exists()) {
                         appData = docSnap.data();
@@ -194,15 +189,14 @@
             
             if (!text || !roomRef) return;
 
-            // เพิ่ม link เข้าไปใน object ด้วย
+            // บันทึกทั้งชื่อรายการและลิงก์
             const newItem = { id: window.generateId(), text: text, link: link, addedAt: Date.now() };
             const currentList = appData[categoryId].active || [];
             const newActive = [...currentList, newItem];
             
-            inputEl.value = ''; // ล้างช่องพิมพ์ชื่อ
-            linkEl.value = '';  // ล้างช่องพิมพ์ลิงก์
+            inputEl.value = ''; 
+            linkEl.value = '';  
             
-            // สั่งอัปเดตขึ้น Cloud Database
             await updateDoc(roomRef, { [`${categoryId}.active`]: newActive });
         };
 
@@ -212,7 +206,6 @@
             const currentList = appData[categoryId][listType] || [];
             const newList = currentList.filter(item => item.id !== itemId);
 
-            // สั่งลบบน Cloud Database
             await updateDoc(roomRef, { [`${categoryId}.${listType}`]: newList });
         };
 
@@ -234,19 +227,18 @@
             const currentHistory = appData[categoryId].history || [];
             const newHistory = [{ ...pickedItem, pickedAt: Date.now() }, ...currentHistory];
             
-            // อัปเดตการสุ่มและประวัติขึ้น Cloud Database
             await updateDoc(roomRef, {
                 [`${categoryId}.active`]: newActive,
                 [`${categoryId}.history`]: newHistory
             });
 
-            // ส่งข้อมูล item ทั้งก้อนไปที่ Modal (แทนที่จะส่งแค่ข้อความ)
+            // ส่งข้อมูลทั้งหมดไปแสดงที่ Modal
             window.showModal(categoryId, pickedItem);
         };
 
         window.toggleHistory = (categoryId) => {
             historyToggleState[categoryId] = !historyToggleState[categoryId];
-            renderDashboard(); // อันนี้แค่เปิดปิดเมนู ไม่ต้องส่งขึ้น Cloud
+            renderDashboard(); 
         };
 
         // UI Functions
@@ -258,10 +250,10 @@
             document.getElementById('modal-top-bar').className = `absolute top-0 left-0 right-0 h-4 ${catInfo.color.split(' ')[0]}`;
             document.getElementById('modal-category-title').innerText = `ผลการสุ่ม ${catInfo.title}`;
             
-            // ตรวจสอบว่ามีลิงก์หรือไม่ ถ้ามีให้แสดงปุ่มกดลิงก์ในหน้าต่างสุ่มด้วย
+            // แสดงผลชื่อที่สุ่มได้ และปุ่มเปิดลิงก์ (ถ้ามี)
             let resultHTML = `🎉 ${item.text} 🎉`;
             if (item.link) {
-                resultHTML += `<br><a href="${item.link}" target="_blank" class="text-sm font-normal text-indigo-500 hover:text-indigo-600 hover:underline mt-3 inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100"><i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดลิงก์ข้อมูล</a>`;
+                resultHTML += `<br><a href="${item.link}" target="_blank" class="text-sm font-normal text-indigo-500 hover:text-indigo-600 hover:underline mt-3 inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-full border border-indigo-100 shadow-sm transition-colors"><i class="fa-solid fa-arrow-up-right-from-square"></i> ดูรายละเอียดลิงก์</a>`;
             }
             document.getElementById('modal-result-text').innerHTML = resultHTML;
 
@@ -294,7 +286,6 @@
             });
         };
 
-        // หากมีการเปลี่ยนรหัสห้อง (Room ID) บน URL ให้โหลดหน้าใหม่
         window.addEventListener('hashchange', () => {
              window.location.reload();
         });
@@ -310,15 +301,22 @@
             }
 
             return `<ul class="space-y-2">` + items.map(item => {
-                // สร้างการแสดงผลลิงก์ ถ้ามีการใส่ลิงก์ไว้
-                const textDisplay = item.link && !isHistory
-                    ? `<a href="${item.link}" target="_blank" class="text-indigo-600 hover:underline inline-flex items-center gap-1 font-medium">${item.text} <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>`
-                    : `<span class="${isHistory ? 'line-through text-slate-500' : 'font-medium text-slate-700'}">${item.text}</span>`;
+                // จัดการเรื่องการตัดคำลิงก์ให้แสดงแค่บางส่วน
+                let shortLinkDisplay = '';
+                if (item.link && !isHistory) {
+                    let displayLink = item.link;
+                    // แสดงลิงก์ให้ยาวสุดแค่ 30 ตัวอักษร
+                    if (displayLink.length > 30) {
+                        displayLink = displayLink.substring(0, 30) + '...';
+                    }
+                    shortLinkDisplay = `<a href="${item.link}" target="_blank" class="block text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline mt-0.5 truncate"><i class="fa-solid fa-link mr-1"></i>${displayLink}</a>`;
+                }
                 
                 return `
                 <li class="flex items-center justify-between p-3 ${isHistory ? 'bg-white opacity-75' : 'bg-slate-50'} border border-slate-200 rounded-xl group hover:border-slate-300 transition-colors">
                     <div class="text-sm truncate pr-2 flex-1">
-                        ${textDisplay}
+                        <span class="${isHistory ? 'line-through text-slate-500' : 'font-medium text-slate-700'} block">${item.text}</span>
+                        ${shortLinkDisplay}
                     </div>
                     <button onclick="deleteItem('${categoryId}', '${item.id}', ${isHistory})" class="text-slate-300 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 shrink-0" title="ลบ">
                         <i class="fa-solid ${isHistory ? 'fa-xmark' : 'fa-trash'}"></i>
@@ -355,16 +353,15 @@
                         </div>
 
                         <div class="p-5 flex-1 flex flex-col bg-white">
-                            <form onsubmit="addItem(event, '${category.id}')" class="mb-5 flex flex-col gap-2">
-                                <!-- ช่องใส่ชื่อรายการ -->
-                                <input type="text" id="input-${category.id}" placeholder="เพิ่มรายการใหม่..." autocomplete="off" required
-                                    class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 shadow-inner">
+                            <!-- ฟอร์มกรอกข้อมูลรูปแบบใหม่ แยกบรรทัดชัดเจน -->
+                            <form onsubmit="addItem(event, '${category.id}')" class="mb-5 flex flex-col gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl shadow-inner">
+                                <input type="text" id="input-${category.id}" placeholder="ชื่อรายการ..." autocomplete="off" required
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                                 
-                                <!-- ช่องใส่ลิงก์ และปุ่มบวก -->
                                 <div class="flex gap-2">
-                                    <input type="url" id="link-${category.id}" placeholder="ใส่ลิงก์ (ถ้ามี)..." autocomplete="off"
-                                        class="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 shadow-inner">
-                                    <button type="submit" class="w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-sm shrink-0">
+                                    <input type="url" id="link-${category.id}" placeholder="🔗 วางลิงก์ที่นี่ (ถ้ามี)" autocomplete="off"
+                                        class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-600">
+                                    <button type="submit" class="w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm shrink-0">
                                         <i class="fa-solid fa-plus"></i>
                                     </button>
                                 </div>
