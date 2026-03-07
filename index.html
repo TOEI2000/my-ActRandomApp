@@ -36,7 +36,7 @@
 <body class="p-4 md:p-8 text-slate-800">
 
     <!-- Header & Link Sharing -->
-    <header class="max-w-6xl mx-auto mb-6 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+    <header class="max-w-7xl mx-auto mb-6 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         
         <!-- Loading overlay -->
         <div id="loading-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -65,7 +65,7 @@
     </header>
 
     <!-- Navigation Tabs -->
-    <div class="max-w-6xl mx-auto mb-6 flex gap-6 border-b border-slate-200 px-2">
+    <div class="max-w-7xl mx-auto mb-6 flex gap-6 border-b border-slate-200 px-2">
         <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-active pb-3 flex items-center gap-2 transition-colors">
             <i class="fa-solid fa-list-check"></i> หน้าหลัก (สุ่มรายการ)
         </button>
@@ -74,13 +74,13 @@
         </button>
     </div>
 
-    <!-- Main Grid (Dashboard View) -->
-    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6" id="dashboard-container">
+    <!-- Main Grid (Dashboard View) - ปรับเป็น 4 คอลัมน์ -->
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6" id="dashboard-container">
         <!-- Rendered by JS -->
     </div>
 
     <!-- Favorites View (Hidden by default) -->
-    <div class="max-w-6xl mx-auto hidden" id="favorites-container">
+    <div class="max-w-7xl mx-auto hidden" id="favorites-container">
         <!-- Rendered by JS -->
     </div>
 
@@ -101,19 +101,22 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // เพิ่ม travel เข้าไปในโครงสร้างเริ่มต้น
         const defaultData = {
             activities: { active: [], history: [] },
             special: { active: [], history: [] },
-            everyday: { active: [], history: [] }
+            everyday: { active: [], history: [] },
+            travel: { active: [], history: [] } 
         };
 
         const CATEGORIES = {
             activities: { id: 'activities', title: 'กิจกรรมทำร่วมกัน', icon: 'fa-user-group', color: 'bg-blue-100 text-blue-700', border: 'border-blue-200' },
             special: { id: 'special', title: 'ร้านอาหารมื้อพิเศษ', icon: 'fa-star', color: 'bg-purple-100 text-purple-700', border: 'border-purple-200' },
-            everyday: { id: 'everyday', title: 'ร้านอาหารทั่วไป', icon: 'fa-mug-hot', color: 'bg-emerald-100 text-emerald-700', border: 'border-emerald-200' }
+            everyday: { id: 'everyday', title: 'ร้านอาหารทั่วไป', icon: 'fa-mug-hot', color: 'bg-emerald-100 text-emerald-700', border: 'border-emerald-200' },
+            travel: { id: 'travel', title: 'ประเทศที่จะไป', icon: 'fa-plane-departure', color: 'bg-sky-100 text-sky-700', border: 'border-sky-200' }
         };
 
-        let historyToggleState = { activities: false, special: false, everyday: false };
+        let historyToggleState = { activities: false, special: false, everyday: false, travel: false };
         let appData = defaultData;
         let roomRef = null;
         window.currentTab = 'dashboard'; // ค่าเริ่มต้นของ Tab
@@ -218,16 +221,25 @@
             event.preventDefault();
             const inputEl = document.getElementById(`input-${categoryId}`);
             const linkEl = document.getElementById(`link-${categoryId}`);
-            const text = inputEl.value.trim();
+            const cityEl = document.getElementById(`city-${categoryId}`); // อาจจะไม่มีถ้าไม่ใช่หมวด travel
+            
+            let text = inputEl.value.trim();
             const link = linkEl.value.trim();
+            const city = cityEl ? cityEl.value.trim() : '';
             
             if (!text || !roomRef) return;
 
+            // หากมีการกรอกเมือง (หมวด travel) ให้นำเมืองไปต่อท้ายประเทศ
+            if (city) {
+                text = `${text} (${city})`;
+            }
+
             const newItem = { id: window.generateId(), text: text, link: link, addedAt: Date.now() };
-            const currentList = appData[categoryId].active || [];
+            const currentList = appData[categoryId]?.active || [];
             
             inputEl.value = ''; 
             linkEl.value = '';  
+            if (cityEl) cityEl.value = '';
             
             await updateDoc(roomRef, { [`${categoryId}.active`]: [...currentList, newItem] });
         };
@@ -497,6 +509,24 @@
                     ? 'bg-slate-800 text-white hover:bg-slate-700 hover:shadow-md transform hover:-translate-y-0.5 cursor-pointer' 
                     : 'bg-slate-100 text-slate-400 cursor-not-allowed';
 
+                // โครงสร้างฟอร์มกรอกข้อมูล (แยกเช็คสำหรับหมวด 'travel' โดยเฉพาะ)
+                let inputFormHTML = '';
+                if (category.id === 'travel') {
+                    inputFormHTML = `
+                        <div class="flex gap-2">
+                            <input type="text" id="input-${category.id}" placeholder="ชื่อประเทศ..." autocomplete="off" required
+                                class="w-1/2 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <input type="text" id="city-${category.id}" placeholder="เมือง (ถ้ามี)..." autocomplete="off"
+                                class="w-1/2 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                        </div>
+                    `;
+                } else {
+                    inputFormHTML = `
+                        <input type="text" id="input-${category.id}" placeholder="ชื่อรายการ..." autocomplete="off" required
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                    `;
+                }
+
                 const columnHTML = `
                     <div class="flex flex-col bg-white rounded-2xl shadow-sm border ${category.border} overflow-hidden">
                         <div class="p-4 flex items-center gap-3 ${category.color} bg-opacity-30 border-b ${category.border}">
@@ -511,8 +541,7 @@
 
                         <div class="p-5 flex-1 flex flex-col bg-white">
                             <form onsubmit="addItem(event, '${category.id}')" class="mb-5 flex flex-col gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl shadow-inner">
-                                <input type="text" id="input-${category.id}" placeholder="ชื่อรายการ..." autocomplete="off" required
-                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                ${inputFormHTML}
                                 <div class="flex gap-2">
                                     <input type="url" id="link-${category.id}" placeholder="🔗 วางลิงก์ที่นี่ (ถ้ามี)" autocomplete="off"
                                         class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-600">
@@ -572,9 +601,9 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
                         <div class="p-4 flex items-center gap-3 ${category.color} bg-opacity-10 border-b border-slate-100">
                             <i class="fa-solid ${category.icon} ${category.color.split(' ')[1]}"></i>
-                            <h3 class="font-bold text-slate-700">${category.title} <span class="text-sm font-normal text-slate-500 ml-1">(${favItems.length} ร้านโปรด)</span></h3>
+                            <h3 class="font-bold text-slate-700">${category.title} <span class="text-sm font-normal text-slate-500 ml-1">(${favItems.length} รายการโปรด)</span></h3>
                         </div>
-                        <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/50">
+                        <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50/50">
                             ${favItems.length > 0 
                                 ? createListHTML(favItems, category.id, true, true) 
                                 : '<p class="text-sm text-slate-400 py-4 col-span-full">ยังไม่มีรายการโปรดในหมวดหมู่นี้</p>'}
@@ -587,15 +616,16 @@
                 <!-- ฟอร์มเพิ่มรายการโปรดโดยตรง -->
                 <div class="bg-gradient-to-r from-rose-50 to-orange-50 p-6 rounded-2xl shadow-sm border border-rose-100 mb-8">
                     <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-rose-800">
-                        <i class="fa-solid fa-heart text-rose-500"></i> เพิ่มร้านโปรด / กิจกรรมโปรด โดยตรง
+                        <i class="fa-solid fa-heart text-rose-500"></i> เพิ่มรายการโปรดโดยตรง
                     </h2>
                     <form onsubmit="addDirectFavorite(event)" class="flex flex-col md:flex-row gap-3">
                         <select id="fav-category" required class="px-4 py-3 border border-rose-200 rounded-xl bg-white text-slate-700 font-medium focus:ring-2 focus:ring-rose-400 focus:outline-none">
                             <option value="activities">หมวด: กิจกรรมทำร่วมกัน</option>
                             <option value="special">หมวด: ร้านอาหารมื้อพิเศษ</option>
                             <option value="everyday">หมวด: ร้านอาหารทั่วไป</option>
+                            <option value="travel">หมวด: ประเทศที่จะไป</option>
                         </select>
-                        <input type="text" id="fav-name" placeholder="ชื่อร้าน / รายการ..." required autocomplete="off"
+                        <input type="text" id="fav-name" placeholder="ชื่อรายการ / ประเทศ(เมือง)..." required autocomplete="off"
                             class="flex-1 px-4 py-3 border border-rose-200 rounded-xl bg-white focus:ring-2 focus:ring-rose-400 focus:outline-none">
                         <input type="url" id="fav-link" placeholder="🔗 ลิงก์ (ถ้ามี)..." autocomplete="off"
                             class="flex-1 px-4 py-3 border border-rose-200 rounded-xl bg-white text-sm focus:ring-2 focus:ring-rose-400 focus:outline-none">
@@ -606,7 +636,7 @@
                     <p class="text-xs text-rose-500/70 mt-3"><i class="fa-solid fa-circle-info mr-1"></i> รายการที่เพิ่มตรงนี้ จะเข้าไปอยู่ในประวัติพร้อมดาว 5 ดวงอัตโนมัติ และคุณสามารถกด "ดึงกลับไปสุ่ม" (รูป 🔄) ได้เสมอ</p>
                 </div>
 
-                <!-- แสดงผลร้านโปรดแยกตามหมวดหมู่ -->
+                <!-- แสดงผลรายการโปรดแยกตามหมวดหมู่ -->
                 ${favsHTML}
             `;
         }
